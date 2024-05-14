@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SuperScale</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #1b1b1b;
+        }
+
+        #uploadInput {
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: rgb(0, 0, 0);
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        #uploadInput:hover {
+            background-color: #053f08;
+        }
+
+        #uploadInput::file-selector-button {
+            font-weight: bold;
+        }
+
+        canvas {
+            display: block;
+            border: 2px solid #333;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        #infoBox {
+            margin-top: 20px;
+            color: white;
+        }
+
+        #downloadBtn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            background-color: #008CBA;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            outline: none;
+        }
+
+        #downloadBtn:hover {
+            background-color: #005f6b;
+        }
+    </style>
+</head>
+<body>
+    <input id="uploadInput" type="file" accept="image/*">
+    <canvas id="outputCanvas"></canvas>
+    <div id="infoBox">
+        Uploaded Image Size: <span id="uploadSize"></span> | Dimensions: <span id="uploadDimensions"></span><br>
+        Returned Image Size: <span id="returnSize"></span> | Dimensions: <span id="returnDimensions"></span>
+    </div>
+    <button id="downloadBtn" style="display: none;">Download Image</button>
+    <script>
+        const input = document.getElementById("uploadInput");
+        const canvas = document.getElementById("outputCanvas");
+        const ctx = canvas.getContext("2d");
+        const uploadSizeSpan = document.getElementById("uploadSize");
+        const uploadDimensionsSpan = document.getElementById("uploadDimensions");
+        const returnSizeSpan = document.getElementById("returnSize");
+        const returnDimensionsSpan = document.getElementById("returnDimensions");
+        const downloadBtn = document.getElementById("downloadBtn");
+
+        const maxWidth = 1500;
+        const maxHeight = 700;
+
+        input.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            const data = new FormData();
+            data.append("image_file", file, "image_file");
+            try {
+                const response = await fetch("/detect", {
+                    method: "POST",
+                    body: data
+                });
+                const jsonResponse = await response.json();
+                const imageData = jsonResponse.image_data;
+                const uploadSize = (file.size / 1024).toFixed(2) + " KB";
+                const uploadDimensions = file.width + "x" + file.height;
+                const returnSize = (imageData.length / 1024).toFixed(2) + " KB";
+                const returnImage = new Image();
+                returnImage.src = "data:image/png;base64," + imageData;
+                returnImage.onload = function() {
+                    const returnDimensions = returnImage.width + "x" + returnImage.height;
+                    uploadSizeSpan.textContent = uploadSize;
+                    uploadDimensionsSpan.textContent = uploadDimensions;
+                    returnSizeSpan.textContent = returnSize;
+                    returnDimensionsSpan.textContent = returnDimensions;
+                    drawImage(imageData);
+                    downloadBtn.style.display = "block";
+                    downloadBtn.onclick = () => {
+                        downloadImage(imageData);
+                    };
+                };
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        });
+    
+        function drawImage(imageData) {
+            const img = new Image();
+            img.onload = () => {
+                const aspectRatio = img.width / img.height;
+                let newWidth = maxWidth;
+                let newHeight = newWidth / aspectRatio;
+                
+                if (newHeight > maxHeight) {
+                    newHeight = maxHeight;
+                    newWidth = newHeight * aspectRatio;
+                }
+                
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+            };
+            img.src = "data:image/png;base64," + imageData;
+        }
+
+        function downloadImage(imageData) {
+            const downloadLink = document.createElement("a");
+            downloadLink.href = "data:image/png;base64," + imageData;
+            downloadLink.download = "scaled_image.png";
+            downloadLink.click();
+        }
+    </script>
+</body>
+</html>
